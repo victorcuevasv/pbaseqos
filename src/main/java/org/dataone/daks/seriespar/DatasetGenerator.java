@@ -93,17 +93,17 @@ public class DatasetGenerator {
 			//System.out.println(graph.toString());
 			//Generate the workflow graph files
 			wfGraph.toDotFile(folderPrefix + "/" + wfName + ".dot", false);
-			JSONObject wfGraphObj = this.generateWFJSON(wfGraph);
+			ASMBindingSimulator simulator = new ASMBindingSimulator(this.serviceCatalog);
+			simulator.init(asmText);
+			Hashtable<String, String> bindingHT = simulator.getBindingHT();
+			JSONObject wfGraphObj = this.generateWFJSON(wfGraph, bindingHT);
 			this.saveJSONObjAsFile(wfGraphObj, folderPrefix + "/" + wfName + ".json");
 			//Generate the traces
 			int nTraces = randInt(1, MAXTRACES);
 			for(int i = 1; i <= nTraces; i++) {
 				//Run the simulator with the ASM tree
-				ASMBindingSimulator simulator = new ASMBindingSimulator(this.serviceCatalog);
-				simulator.init(asmText);
 				simulator.run();
 				simulator.getTraceDigraph().toDotFile(folderPrefix + "/" + wfName + "trace" + i + ".dot", true);
-				Hashtable<String, String> bindingHT = simulator.getBindingHT();
 				Hashtable<String, QoSMetrics> qosHT = simulator.getQoSHT();
 				JSONObject traceGraphObj = this.generateTraceJSON(simulator.getTraceDigraph(), bindingHT, qosHT);
 				this.saveJSONObjAsFile(traceGraphObj, folderPrefix + "/" + wfName + "trace" + i + ".json");
@@ -115,7 +115,7 @@ public class DatasetGenerator {
 	}
 	
 	
-	private JSONObject generateWFJSON(Digraph graph) {
+	private JSONObject generateWFJSON(Digraph graph, Hashtable<String, String> bindingHT) {
 		List<String> nodes = graph.getVertices();
 		JSONArray nodesArray = new JSONArray();
 		JSONArray edgesArray = new JSONArray();
@@ -124,6 +124,8 @@ public class DatasetGenerator {
 			for(String node1Id: nodes) {
 				JSONObject nodeObj = new JSONObject();
 				nodeObj.put("nodeId", node1Id);
+				String service = bindingHT.get(node1Id);
+				nodeObj.put("service", service);
 				nodesArray.put(nodeObj);
 				List<String> adjList = graph.getAdjList(node1Id);
 				for( String node2Id: adjList ) {

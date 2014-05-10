@@ -3,7 +3,9 @@ package org.dataone.daks.seriespar;
 
 
 import java.io.*;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import org.json.*;
 import org.apache.jena.riot.RDFDataMgr;
@@ -39,14 +41,13 @@ public class DigraphJSONtoRDF {
 	
 	
 	public static void main(String args[]) {
-		if( args.length != 3 ) {
-			System.out.println("Usage: java org.dataone.daks.seriespar.DigraphJSONtoRDF <JSON file name> <graph ID> <workflow|trace>");   
+		if( args.length != 4 ) {
+			System.out.println("Usage: java org.dataone.daks.seriespar.DigraphJSONtoRDF <folder> <prefix> <n workflow> <n traces>");      
 			System.exit(0);
 		}
 		DigraphJSONtoRDF converter = new DigraphJSONtoRDF();
-		String jsonStr = converter.readFile(args[0]);
-		if( args[2].equals("workflow") )
-			converter.createRDFWFFromJSONString(jsonStr, args[1]);
+		String jsonStr = converter.readFile(args[0] + "/" + args[1] + args[2] + ".json");
+		converter.createRDFWFFromJSONString(jsonStr, args[1] + args[2]);
 		converter.saveModelAsXMLRDF();
 	}
 
@@ -87,18 +88,54 @@ public class DigraphJSONtoRDF {
 			JSONArray nodesArray = graphObj.getJSONArray("nodes");
 			JSONArray edgesArray = graphObj.getJSONArray("edges");
 			//Generate the Workflow entity
-			this.createWorkflowEntity(wfID);
+			String wfIndId = this.createWorkflowEntity(wfID);
 			int ip = 1;
 			int op = 1;
+			HashMap<String, List<String>> processInPortsHT = new HashMap<String, List<String>>();
+			HashMap<String, List<String>> processOutPortsHT = new HashMap<String, List<String>>();
+			//Iterate over nodes to generate process entities
 			for( int i = 0; i < nodesArray.length(); i++ ) {
 				JSONObject nodeObj = nodesArray.getJSONObject(i);
 				String nodeId = nodeObj.getString("nodeId");
-				this.createProcessEntity(wfID, nodeId, nodeId, i);
+				String processIndId = this.createProcessEntity(wfID, nodeId, nodeId, i);
+				//Generate hasSubProcess object properties
+				this.createHasSubProcessObjectProperty(wfIndId, processIndId);
 				// Generate InputPort and OutputPort entities
-				//IMPORTANT the number of inputs of the first workflow tasks is determined randomly
-				createInputPortEntity(wfID, i, ip, nodeId);
-				
-			}		
+				List<String> nodeRevAdjList = revDigraph.getAdjList(nodeId);
+				int nInPorts = nodeRevAdjList.size();
+				List<String> inPortsList = new ArrayList<String>();
+				for(int j = 1; j <= nInPorts; j++) {
+					String inPortIndId = this.createInputPortEntity(wfID, i, ip, nodeId);
+					this.createHasInputPortObjectProperty(processIndId, inPortIndId);
+					inPortsList.add(inPortIndId);
+					ip++;
+				}
+				processInPortsHT.put(nodeId, inPortsList);
+				List<String> nodeAdjList = digraph.getAdjList(nodeId);
+				int nOutPorts = nodeAdjList.size();
+				List<String> outPortsList = new ArrayList<String>();
+				for(int j = 1; j <= nOutPorts; j++) {
+					String outPortIndId = this.createOutputPortEntity(wfID, i, op, nodeId);
+					this.createHasOutputPortObjectProperty(processIndId, outPortIndId);
+					outPortsList.add(outPortIndId);
+					op++;
+				}
+				processOutPortsHT.put(nodeId, outPortsList);
+			}
+			//Iterate over the edges to generate DataLink entities
+			int dl = 1;
+			for( int i = 0; i < edgesArray.length(); i++ ) {
+				JSONObject edgeObj = edgesArray.getJSONObject(i);
+				String source = edgeObj.getString("startNodeId");
+				String dest = edgeObj.getString("endNodeId");
+				String dataLinkIndId = this.createDataLinkEntity(wfID, dl, source, dest);
+				dl++;
+				//Generate DLToInPort and outPortToDL object properties
+				String outPortIndId = processOutPortsHT.get(source).remove(0);
+				this.createOutPortToDLObjectProperty(outPortIndId, dataLinkIndId);
+				String inPortIndId = processInPortsHT.get(dest).remove(0);
+				this.createDLToInPortObjectProperty(dataLinkIndId, inPortIndId);
+			}
 		}
 		catch(JSONException e) {
 			e.printStackTrace();
@@ -106,16 +143,17 @@ public class DigraphJSONtoRDF {
 	}
 	
 	
-	private void createWorkflowEntity(String wfID) {
+	private String createWorkflowEntity(String wfID) {
 		OntClass workflowClass = this.model.getOntClass( SOURCE_URL + "#" + "Workflow" );
 		Individual workflowInd = this.model.createIndividual( EXAMPLE_NS + wfID + "/wf", workflowClass );
 		Property wfIdentifierP = this.model.createProperty(DCTERMS_NS + "identifier");
 		workflowInd.addProperty(wfIdentifierP, wfID, XSDDatatype.XSDstring);
 		this.idToInd.put(wfID, workflowInd);
+		return wfID;
 	}
 	
 	
-	private void createProcessEntity(String wfID, String id, String title, int processIndex) {
+	private String createProcessEntity(String wfID, String id, String title, int processIndex) {
 		OntClass processClass = this.model.getOntClass( SOURCE_URL + "#" + "Process" );
 		Individual processInd = this.model.createIndividual( EXAMPLE_NS + wfID + "/process_" + processIndex, processClass );
 		Property identifierP = this.model.createProperty(DCTERMS_NS + "identifier");
@@ -123,17 +161,69 @@ public class DigraphJSONtoRDF {
 		this.idToInd.put(id, processInd);
 		Property titleP = this.model.createProperty(DCTERMS_NS + "title");
 		processInd.addProperty(titleP, title, XSDDatatype.XSDstring);
+		return id;
 	}
 	
 	
-	private void createInputPortEntity(String wfID, int processIndex, int ipIndex, String processId) {
+	private void createHasSubProcessObjectProperty(String wfIndId, String processIndId) {
+		ObjectProperty hasSubProcessOP = this.model.createObjectProperty(SOURCE_URL + "#" + "hasSubProcess");
+		this.model.add(this.idToInd.get(wfIndId), hasSubProcessOP, this.idToInd.get(processIndId));
+	}
+	
+	
+	private String createInputPortEntity(String wfID, int processIndex, int ipIndex, String processId) {
 		OntClass inputPortClass = this.model.getOntClass( SOURCE_URL + "#" + "InputPort" );
-		OntClass outputPortClass = this.model.getOntClass( SOURCE_URL + "#" + "OutputPort" );
 		Individual inputPortInd = this.model.createIndividual( EXAMPLE_NS + wfID + "/p" + processIndex + "_ip" + 
 				ipIndex, inputPortClass );
 		Property ipIdentifierP = this.model.createProperty(DCTERMS_NS + "identifier");
-		inputPortInd.addProperty(ipIdentifierP, processId + "_" + "_ip" + ipIndex, XSDDatatype.XSDstring);
-		this.idToInd.put(processId + "_" + "_ip" + ipIndex, inputPortInd);
+		inputPortInd.addProperty(ipIdentifierP, processId + "_" + "ip" + ipIndex, XSDDatatype.XSDstring);
+		this.idToInd.put(processId + "_" + "ip" + ipIndex, inputPortInd);
+		return processId + "_" + "ip" + ipIndex;
+	}
+	
+	
+	private String createOutputPortEntity(String wfID, int processIndex, int opIndex, String processId) {
+		OntClass outputPortClass = this.model.getOntClass( SOURCE_URL + "#" + "OutputPort" );
+		Individual outputPortInd = this.model.createIndividual( EXAMPLE_NS + wfID + "/p" + processIndex + "_op" + 
+				opIndex, outputPortClass );
+		Property opIdentifierP = this.model.createProperty(DCTERMS_NS + "identifier");
+		outputPortInd.addProperty(opIdentifierP, processId + "_" + "op" + opIndex, XSDDatatype.XSDstring);
+		this.idToInd.put(processId + "_" + "op" + opIndex, outputPortInd);
+		return processId + "_" + "op" + opIndex;
+	}
+	
+	
+	private void createHasInputPortObjectProperty(String processIndId, String inPortIndId) {
+		ObjectProperty hasInputPortOP = this.model.createObjectProperty(SOURCE_URL + "#" + "hasInputPort");
+		this.model.add(this.idToInd.get(processIndId), hasInputPortOP, this.idToInd.get(inPortIndId));
+	}
+	
+	
+	private void createHasOutputPortObjectProperty(String processIndId, String outPortIndId) {
+		ObjectProperty hasOutputPortOP = this.model.createObjectProperty(SOURCE_URL + "#" + "hasOutputPort");
+		this.model.add(this.idToInd.get(processIndId), hasOutputPortOP, this.idToInd.get(outPortIndId));
+	}
+	
+	
+	private String createDataLinkEntity(String wfID, int dl, String source, String dest) {
+		OntClass dataLinkClass = this.model.getOntClass( SOURCE_URL + "#" + "DataLink" );
+		Individual dataLinkInd = this.model.createIndividual( EXAMPLE_NS + wfID + "/dl" + dl, dataLinkClass );
+		Property identifierP = this.model.createProperty(DCTERMS_NS + "identifier");
+		dataLinkInd.addProperty(identifierP, source + "_" + dest + "DL", XSDDatatype.XSDstring);
+		this.idToInd.put(source + "_" + dest + "DL", dataLinkInd);
+		return source + "_" + dest + "DL";
+	}
+	
+	
+	private void createDLToInPortObjectProperty(String dataLinkIndId, String inPortIndId) {
+		ObjectProperty DLToInPortOP = this.model.createObjectProperty(SOURCE_URL + "#" + "DLToInPort");
+		this.model.add(this.idToInd.get(dataLinkIndId), DLToInPortOP, this.idToInd.get(inPortIndId));
+	}
+	
+	
+	private void createOutPortToDLObjectProperty(String dataLinkIndId, String outPortIndId) {
+		ObjectProperty outPortToDLOP = this.model.createObjectProperty(SOURCE_URL + "#" + "outPortToDL");
+		this.model.add(this.idToInd.get(dataLinkIndId), outPortToDLOP, this.idToInd.get(outPortIndId));
 	}
 	
 	
