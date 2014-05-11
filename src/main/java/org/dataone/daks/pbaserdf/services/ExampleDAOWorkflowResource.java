@@ -19,15 +19,19 @@ public class ExampleDAOWorkflowResource {
      */
     @GET 
     @Produces("text/plain")
-    public String getIt(@QueryParam("wfid") String wfid) {
+    public String getIt(@QueryParam("dbname") String dbname, @QueryParam("wfid") String wfid) {
     	LDBDAO dao = LDBDAO.getInstance();
-    	dao.init("provone");
     	String retVal = null;
     	try {
+    		if( dbname == null )
+    			System.out.println("ERROR: dbname parameter is null.");
     		if( wfid == null )
     			System.out.println("ERROR: wfid parameter is null.");
-    		else
-    			retVal = dao.getWorkflowReachEncoding(wfid);
+    		if( dbname != null && wfid != null ) {
+    			dao.init(dbname);
+    			//retVal = dao.getWorkflowReachEncoding(wfid);
+    			retVal = dao.getWorkflow(wfid);
+    		}
     	}
     	catch(Exception e) {
     		e.printStackTrace();
@@ -35,3 +39,4 @@ public class ExampleDAOWorkflowResource {
     	return retVal;
     }
 }
+

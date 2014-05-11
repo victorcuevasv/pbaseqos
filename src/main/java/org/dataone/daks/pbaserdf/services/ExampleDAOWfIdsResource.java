@@ -4,6 +4,7 @@ package org.dataone.daks.pbaserdf.services;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 
 import org.dataone.daks.pbaserdf.dao.LDBDAO;
 
@@ -18,12 +19,16 @@ public class ExampleDAOWfIdsResource {
      */
     @GET 
     @Produces("text/plain")
-    public String getIt() {
+    public String getIt(@QueryParam("dbname") String dbname) {
     	LDBDAO dao = LDBDAO.getInstance();
-    	dao.init("provone");
     	String retVal = null;
     	try {
-    		retVal = dao.getWfIDs();
+    		if( dbname == null )
+    			System.out.println("ERROR: dbname parameter is null.");
+    		else {
+    			dao.init(dbname);
+    			retVal = dao.getWfIDs();
+    		}
     	}
     	catch(Exception e) {
     		e.printStackTrace();

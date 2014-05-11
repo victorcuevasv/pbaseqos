@@ -71,7 +71,7 @@ public class DatasetGenerator {
 		double nonTermProb = 0.6;
 		double weaken = 0.1;
 		String asmText = spGenerator.asm(minStatements, maxStatements, nonTermProb, weaken);
-		this.saveTextToFile(asmText, wfName + ".txt");
+		this.saveTextToFile(asmText, folderPrefix + "/" + wfName + ".txt");
 		int nTraces = 0;
         try {
         	//Create a CharStream that reads from the input stream provided as a parameter

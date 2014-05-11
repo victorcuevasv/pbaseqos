@@ -1,5 +1,6 @@
 package org.dataone.daks.pbaserdf.dao;
 
+import java.util.Collections;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.ArrayList;
@@ -71,13 +72,18 @@ public class LDBDAO {
         Query query = QueryFactory.create(sparqlQueryString);
         QueryExecution qexec = QueryExecutionFactory.create(query, this.ds);
         ResultSet results = qexec.execSelect();
-        JSONArray array = new JSONArray();
+        List<String> wfIDsList = new ArrayList<String>();
         for ( ; results.hasNext() ; ) {
             QuerySolution soln = results.nextSolution();
             String id = soln.getLiteral("v").getString();
-            array.put(id);
+            wfIDsList.add(id);
         }
         qexec.close();
+        Collections.sort(wfIDsList);
+        JSONArray array = new JSONArray();
+        for (int i = 0; i < wfIDsList.size(); i++) {
+        	array.put(wfIDsList.get(i));
+        }
 		return array.toString();
 	}
 	
@@ -122,7 +128,7 @@ public class LDBDAO {
         		"PREFIX dc: <http://purl.org/dc/terms/> \n" +
         		"PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> \n" +
         		"SELECT ?op_process_id ?ip_process_id WHERE {  ?dl rdf:type provone:DataLink . " +
-        		"?dl provone:outPortToDL ?op . " +
+        		"?dl provone:DLToOutPort ?op . " +
         		"?dl provone:DLToInPort ?ip . " +
         		"?op_process provone:hasOutputPort ?op . " + 
         		"?ip_process provone:hasInputPort ?ip . " + 
@@ -217,13 +223,18 @@ public class LDBDAO {
         Query query = QueryFactory.create(sparqlQueryString);
         QueryExecution qexec = QueryExecutionFactory.create(query, this.ds);
         ResultSet results = qexec.execSelect();
-        JSONArray array = new JSONArray();
+        List<String> runIDsList = new ArrayList<String>();
         for ( ; results.hasNext() ; ) {
             QuerySolution soln = results.nextSolution();
             String id = soln.getLiteral("v").getString();
-            array.put(id);
+            runIDsList.add(id);
         }
         qexec.close();
+        Collections.sort(runIDsList);
+        JSONArray array = new JSONArray();
+        for (int i = 0; i < runIDsList.size(); i++) {
+        	array.put(runIDsList.get(i));
+        }
 		return array.toString();
 	}
 	
