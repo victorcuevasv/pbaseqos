@@ -3,6 +3,7 @@ package org.dataone.daks.seriespar;
 
 
 import java.io.*;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Random;
@@ -53,12 +54,16 @@ public class DatasetGenerator {
 			String token = tokenizer.nextToken();
 			wfNames.add(token);
 		}
-		for( String wfName: wfNames )
-			this.generateWfAndTraces(wfName, folderPrefix);
+		Hashtable<String, Integer> numTracesHT = new Hashtable<String, Integer>();
+		for( String wfName: wfNames ) {
+			int nTraces = this.generateWfAndTraces(wfName, folderPrefix);
+			numTracesHT.put(wfName, nTraces);
+		}
+		this.saveNumTracesFile(numTracesHT, "numtraces.txt");
 	}
 
 	
-	public void generateWfAndTraces(String wfName, String folderPrefix) {
+	public int generateWfAndTraces(String wfName, String folderPrefix) {
 		//Generate the ASM
 		SeriesParallelGenerator spGenerator = new SeriesParallelGenerator();
 		int minStatements = 2;
@@ -67,6 +72,7 @@ public class DatasetGenerator {
 		double weaken = 0.1;
 		String asmText = spGenerator.asm(minStatements, maxStatements, nonTermProb, weaken);
 		this.saveTextToFile(asmText, wfName + ".txt");
+		int nTraces = 0;
         try {
         	//Create a CharStream that reads from the input stream provided as a parameter
         	ANTLRStringStream input = new ANTLRStringStream(asmText);
@@ -99,7 +105,7 @@ public class DatasetGenerator {
 			JSONObject wfGraphObj = this.generateWFJSON(wfGraph, bindingHT);
 			this.saveJSONObjAsFile(wfGraphObj, folderPrefix + "/" + wfName + ".json");
 			//Generate the traces
-			int nTraces = randInt(1, MAXTRACES);
+			nTraces = randInt(1, MAXTRACES);
 			for(int i = 1; i <= nTraces; i++) {
 				//Run the simulator with the ASM tree
 				simulator.run();
@@ -112,6 +118,7 @@ public class DatasetGenerator {
         catch (RecognitionException e) {
 			e.printStackTrace();
 		}
+        return nTraces;
 	}
 	
 	
@@ -227,6 +234,23 @@ public class DatasetGenerator {
 		try {
 			PrintWriter writer = new PrintWriter(new BufferedWriter(new FileWriter(filename)));
 			writer.print(text);
+			writer.close();
+		}
+		catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	
+	private void saveNumTracesFile(Hashtable<String, Integer> numTracesHT, String filename) {
+		try {
+			PrintWriter writer = new PrintWriter(new BufferedWriter(new FileWriter(filename)));
+			Enumeration<String> e = numTracesHT.keys();
+		    while(e.hasMoreElements()) {
+		    	String wfId = e.nextElement();
+		    	int nTraces = numTracesHT.get(wfId);
+		    	writer.println(wfId + " " + nTraces + " ");
+		    }
 			writer.close();
 		}
 		catch (IOException e) {

@@ -6,6 +6,7 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.StringTokenizer;
 
 import org.json.*;
 import org.apache.jena.riot.RDFDataMgr;
@@ -41,16 +42,52 @@ public class DigraphJSONtoRDF {
 	
 	
 	public static void main(String args[]) {
-		if( args.length != 4 ) {
-			System.out.println("Usage: java org.dataone.daks.seriespar.DigraphJSONtoRDF <folder> <prefix> <n workflow> <n traces>");      
+		if( args.length != 3 ) {
+			System.out.println("Usage: java org.dataone.daks.seriespar.DigraphJSONtoRDF <json files folder> <wf ids file> <n traces file>");      
 			System.exit(0);
 		}
 		DigraphJSONtoRDF converter = new DigraphJSONtoRDF();
-		String jsonStr = converter.readFile(args[0] + "/" + args[1] + args[2] + ".json");
-		converter.createRDFWFFromJSONString(jsonStr, args[1] + args[2]);
+		List<String> wfNamesList = converter.createWFNamesList(args[1]);
+		HashMap<String, Integer> numTracesHT = converter.createNumTracesHT(args[2]);
+		String folder = args[0];
+		for(String wfName: wfNamesList) {
+			String wfJSONStr = converter.readFile(folder + "/" + wfName + ".json");
+			converter.createRDFWFFromJSONString(wfJSONStr, wfName);
+			int nTraces = numTracesHT.get(wfName);
+			for( int i = 1; i <= nTraces; i++ ) {
+				String traceJSONStr = converter.readFile(folder + "/" + wfName + "trace" + i + ".json");
+				converter.createRDFTraceFromJSONString(traceJSONStr, wfName, i);
+			}
+		}
 		converter.saveModelAsXMLRDF();
 	}
 
+	
+	private List<String> createWFNamesList(String wfNamesFile) {
+		String wfNamesText = readFile(wfNamesFile);
+		List<String> wfNamesList = new ArrayList<String>();
+		StringTokenizer tokenizer = new StringTokenizer(wfNamesText);
+		while( tokenizer.hasMoreTokens() ) {
+			String token = tokenizer.nextToken();
+			wfNamesList.add(token);
+		}
+		return wfNamesList;
+	}
+	
+	
+	private HashMap<String, Integer> createNumTracesHT(String numTracesFile) {
+		String numTracesText = readFile(numTracesFile);
+		HashMap<String, Integer> numTracesHT = new HashMap<String, Integer>();
+		StringTokenizer tokenizer = new StringTokenizer(numTracesText);
+		while( tokenizer.hasMoreTokens() ) {
+			String wfId = tokenizer.nextToken();
+			String nTracesStr = tokenizer.nextToken();
+			int nTraces = Integer.parseInt(nTracesStr);
+			numTracesHT.put(wfId, nTraces);
+		}
+		return numTracesHT;
+	}
+	
 	
 	private OntModel createOntModel() {
 		OntModel m = ModelFactory.createOntologyModel( OntModelSpec.OWL_MEM );
@@ -143,6 +180,60 @@ public class DigraphJSONtoRDF {
 	}
 	
 	
+	public void createRDFTraceFromJSONString(String jsonStr, String wfID, int traceNumber) {
+		try {
+			JSONObject graphObj = new JSONObject(jsonStr);
+			JSONArray nodesArray = graphObj.getJSONArray("nodes");
+			JSONArray edgesArray = graphObj.getJSONArray("edges");
+			int pExecIndex = 1;
+			int dataIndex = 1;
+			//Generate process execution entity for the workflow
+			String wfProcessExecIndId = this.createWFProcessExecEntity(wfID, wfID + "trace" + traceNumber, traceNumber);
+			//Associate the workflow process execution with the workflow itself
+			this.createWasAssociatedWithObjectProperty(wfProcessExecIndId, wfID);
+			//Iterate over nodes to generate process execution entities
+			for( int i = 0; i < nodesArray.length(); i++ ) {
+				JSONObject nodeObj = nodesArray.getJSONObject(i);
+				String nodeId = nodeObj.getString("nodeId");
+				String pExecIndId = null;
+				String dataIndId = null;
+				//Check if the node is an activity or a data item
+				if( !nodeId.contains("_") ) { //activity
+					pExecIndId = this.createProcessExecEntity(wfID, nodeId, traceNumber, pExecIndex);
+					this.createWasAssociatedWithObjectProperty(pExecIndId, wfID + nodeId);
+					this.createIsPartOfObjectProperty(pExecIndId, wfProcessExecIndId);
+					this.createQoSObjectProperties(pExecIndId, nodeObj.getDouble("time"), nodeObj.getDouble("cost"), nodeObj.getDouble("reliability"));   
+				}
+				else { //data
+					dataIndId = this.createDataEntity(wfID, nodeId, traceNumber, dataIndex);
+				}
+			}
+			//Generate wasGeneratedBy and used object properties between Data and ProcessExec entities
+			for( int i = 0; i < edgesArray.length(); i++ ) {
+				JSONObject edgeObj = edgesArray.getJSONObject(i);
+				String startNodeId = edgeObj.getString("startNodeId");
+				String endNodeId = edgeObj.getString("endNodeId");
+				String edgeLabel = edgeObj.getString("edgeLabel");
+				String pExecIndId = null;
+				String dataIndId = null;
+				if( edgeLabel.equals("wasGenBy") ) {
+					dataIndId = wfID + "trace" + traceNumber + startNodeId;
+					pExecIndId = wfID + "trace" + traceNumber + endNodeId;
+					this.createWasGeneratedByObjectProperty(dataIndId, pExecIndId);
+				}
+				else if( edgeLabel.equals("used") ) {
+					dataIndId = wfID + "trace" + traceNumber + endNodeId;
+					pExecIndId = wfID + "trace" + traceNumber + startNodeId;
+					this.createUsedObjectProperty(pExecIndId, dataIndId);
+				}
+			}
+		}
+		catch(JSONException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	
 	private String createWorkflowEntity(String wfID) {
 		OntClass workflowClass = this.model.getOntClass( SOURCE_URL + "#" + "Workflow" );
 		Individual workflowInd = this.model.createIndividual( EXAMPLE_NS + wfID + "/wf", workflowClass );
@@ -158,10 +249,40 @@ public class DigraphJSONtoRDF {
 		Individual processInd = this.model.createIndividual( EXAMPLE_NS + wfID + "/process_" + processIndex, processClass );
 		Property identifierP = this.model.createProperty(DCTERMS_NS + "identifier");
 		processInd.addProperty(identifierP, id, XSDDatatype.XSDstring);
-		this.idToInd.put(id, processInd);
+		this.idToInd.put(wfID + id, processInd);
 		Property titleP = this.model.createProperty(DCTERMS_NS + "title");
 		processInd.addProperty(titleP, title, XSDDatatype.XSDstring);
+		return wfID + id;
+	}
+	
+	
+	private String createProcessExecEntity(String wfID, String nodeId, int traceNumber, int processExecIndex) {
+		OntClass processExecClass = this.model.getOntClass( SOURCE_URL + "#" + "ProcessExec" );
+		Individual processExecInd = this.model.createIndividual( EXAMPLE_NS + wfID + "/trace" + traceNumber + "processExec_" + processExecIndex, processExecClass );    
+		Property identifierP = this.model.createProperty(DCTERMS_NS + "identifier");
+		processExecInd.addProperty(identifierP, nodeId, XSDDatatype.XSDstring);
+		this.idToInd.put(wfID + "trace" + traceNumber + nodeId, processExecInd);
+		return wfID + "trace" + traceNumber + nodeId;
+	}
+	
+	
+	private String createWFProcessExecEntity(String wfID, String id, int traceNumber) {
+		OntClass processExecClass = this.model.getOntClass( SOURCE_URL + "#" + "ProcessExec" );
+		Individual processExecInd = this.model.createIndividual( EXAMPLE_NS + wfID + "/wfprocessExec_" + traceNumber, processExecClass );    
+		Property identifierP = this.model.createProperty(DCTERMS_NS + "identifier");
+		processExecInd.addProperty(identifierP, id, XSDDatatype.XSDstring);
+		this.idToInd.put(id, processExecInd);
 		return id;
+	}
+	
+	
+	private String createDataEntity(String wfID, String nodeId, int traceNumber, int dataIndex) {
+		OntClass dataClass = this.model.getOntClass( SOURCE_URL + "#" + "Data" );
+		Individual dataInd = this.model.createIndividual( EXAMPLE_NS + wfID + "/trace" + traceNumber + "data_" + dataIndex, dataClass );
+		Property identifierP = this.model.createProperty(DCTERMS_NS + "identifier");
+		dataInd.addProperty(identifierP, nodeId, XSDDatatype.XSDstring);
+		this.idToInd.put(wfID + "trace" + traceNumber + nodeId, dataInd);
+		return wfID + "trace" + traceNumber + nodeId;
 	}
 	
 	
@@ -224,6 +345,41 @@ public class DigraphJSONtoRDF {
 	private void createOutPortToDLObjectProperty(String dataLinkIndId, String outPortIndId) {
 		ObjectProperty outPortToDLOP = this.model.createObjectProperty(SOURCE_URL + "#" + "outPortToDL");
 		this.model.add(this.idToInd.get(dataLinkIndId), outPortToDLOP, this.idToInd.get(outPortIndId));
+	}
+	
+	
+	private void createWasAssociatedWithObjectProperty(String processExecIndId, String processIndId) {
+		ObjectProperty wasAssociatedWithOP = this.model.createObjectProperty(PROV_NS + "wasAssociatedWith");
+		this.model.add(this.idToInd.get(processExecIndId), wasAssociatedWithOP, this.idToInd.get(processIndId));
+	}
+	
+	
+	private void createIsPartOfObjectProperty(String processExecIndId, String wfProcessExecIndId) {
+		Property isPartOfOP = this.model.createProperty(SOURCE_URL + "#" + "isPartOf");
+		this.model.add(this.idToInd.get(processExecIndId), isPartOfOP, this.idToInd.get(wfProcessExecIndId));
+	}
+	
+	
+	private void createWasGeneratedByObjectProperty(String dataIndId, String processExecIndId) {
+		Property wasGeneratedByOP = this.model.createProperty(PROV_NS + "wasGeneratedBy");
+		this.model.add(this.idToInd.get(dataIndId), wasGeneratedByOP, this.idToInd.get(processExecIndId));
+	}
+	
+	
+	private void createUsedObjectProperty(String processExecIndId, String dataIndId) {
+		Property usedOP = this.model.createProperty(PROV_NS + "used");
+		this.model.add(this.idToInd.get(processExecIndId), usedOP, this.idToInd.get(dataIndId));
+	}
+	
+	
+	private void createQoSObjectProperties(String pExecIndId, double time, double cost, double reliability) {
+		Individual pExecInd = this.idToInd.get(pExecIndId);
+		Property timeOP = this.model.createProperty(WFMS_NS + "#" + "time");
+		pExecInd.addProperty(timeOP, time + "", XSDDatatype.XSDdouble);
+		Property costOP = this.model.createProperty(WFMS_NS + "#" + "cost");
+		pExecInd.addProperty(costOP, cost + "", XSDDatatype.XSDdouble);
+		Property reliabilityOP = this.model.createProperty(WFMS_NS + "#" + "reliability");
+		pExecInd.addProperty(reliabilityOP, reliability + "", XSDDatatype.XSDdouble);
 	}
 	
 	
