@@ -92,9 +92,11 @@ public class LDBDAO {
     	String sparqlQueryString = "PREFIX provone: <http://purl.org/provone/ontology#> \n" +
         		"PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> \n" +
         		"PREFIX dc: <http://purl.org/dc/terms/> \n" +
+        		"PREFIX wfms: <http://www.vistrails.org/registry.xsd#> \n" +
         		"PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> \n" +
-        		"SELECT ?i ?t WHERE {  ?process dc:identifier ?i . " +
+        		"SELECT ?i ?t ?service WHERE {  ?process dc:identifier ?i . " +
         		"?process dc:title ?t . " +
+        		"OPTIONAL { ?process wfms:service ?service } . " +
         		"?process rdf:type provone:Process . " + 
         		"?wf rdf:type provone:Workflow . " +
         		"?wf dc:identifier " + "\"" + wfID + "\"^^xsd:string . " +
@@ -111,6 +113,9 @@ public class LDBDAO {
 				nodeObj.put("nodeId", id);
 				String title = soln.getLiteral("t").getString();
 	            nodeObj.put("title", title);
+	            Literal serviceLit = soln.getLiteral("service");
+	            if( serviceLit != null )
+	            	nodeObj.put("service", serviceLit.getString());
 	            nodesArray.put(nodeObj);
 			}
         }
@@ -247,13 +252,14 @@ public class LDBDAO {
         		"PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> \n" +
         		"PREFIX prov: <http://www.w3.org/ns/prov#> \n" +
         		"PREFIX wfms: <http://www.vistrails.org/registry.xsd#> \n" +
-				"SELECT ?id ?time ?cost ?reliability WHERE {  " + 
+				"SELECT ?id ?service ?time ?cost ?reliability WHERE {  " + 
         		"?wfpexec prov:wasAssociatedWith ?wf . " +
         		"?wf rdf:type provone:Workflow . " +
         		"?wf dc:identifier " + "\"" + wfID + "\"^^xsd:string . " +
         		"?wfpexec dc:identifier " + "\"" + runID + "\"^^xsd:string . " +
         		"?pexec provone:isPartOf ?wfpexec . " +
         		"?pexec dc:identifier ?id . " +
+        		"?pexec wfms:service ?service . " +
         		"?pexec wfms:time ?time . " +
         		"?pexec wfms:cost ?cost . " +
         		"?pexec wfms:reliability ?reliability . " +
@@ -266,6 +272,8 @@ public class LDBDAO {
             JSONObject jsonObj = new JSONObject();
             String id = soln.getLiteral("id").getString();
             jsonObj.put("nodeId", id);
+            String service = soln.getLiteral("service").getString();
+            jsonObj.put("service", service);
             Double time = soln.getLiteral("time").getDouble();
             String timeStr = String.format("%.3f", time);
             jsonObj.put("time", timeStr);

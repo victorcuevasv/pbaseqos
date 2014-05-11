@@ -150,6 +150,9 @@ public class DigraphJSONtoRDF {
 				String processIndId = this.createProcessEntity(wfID, nodeId, nodeId, i);
 				//Generate hasSubProcess object properties
 				this.createHasSubProcessObjectProperty(wfIndId, processIndId);
+				//Generate service object property for processes bound to services
+				if( nodeObj.has("service") )
+					this.createServiceObjectProperty(processIndId, nodeObj.getString("service"));
 				// Generate InputPort and OutputPort entities
 				List<String> nodeRevAdjList = revDigraph.getAdjList(nodeId);
 				int nInPorts = nodeRevAdjList.size();
@@ -214,6 +217,8 @@ public class DigraphJSONtoRDF {
 					this.createWasAssociatedWithObjectProperty(pExecIndId, wfID + nodeId);
 					this.createIsPartOfObjectProperty(pExecIndId, wfProcessExecIndId);
 					this.createQoSObjectProperties(pExecIndId, nodeObj.getDouble("time"), nodeObj.getDouble("cost"), nodeObj.getDouble("reliability"));
+					//Generate service object property
+					this.createServiceObjectProperty(pExecIndId, nodeObj.getString("service"));
 					pExecIndex++;
 				}
 				else { //data
@@ -393,6 +398,13 @@ public class DigraphJSONtoRDF {
 		pExecInd.addProperty(costOP, cost + "", XSDDatatype.XSDdouble);
 		Property reliabilityOP = this.model.createProperty(WFMS_NS + "reliability");
 		pExecInd.addProperty(reliabilityOP, reliability + "", XSDDatatype.XSDdouble);
+	}
+	
+	
+	private void createServiceObjectProperty(String indId, String service) {
+		Individual ind = this.idToInd.get(indId);
+		Property serviceOP = this.model.createProperty(WFMS_NS + "service");
+		ind.addProperty(serviceOP, service, XSDDatatype.XSDstring);
 	}
 	
 	
