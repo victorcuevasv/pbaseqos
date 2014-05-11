@@ -246,13 +246,17 @@ public class LDBDAO {
         		"PREFIX dc: <http://purl.org/dc/terms/> \n" +
         		"PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> \n" +
         		"PREFIX prov: <http://www.w3.org/ns/prov#> \n" +
-				"SELECT ?id WHERE {  " + 
+        		"PREFIX wfms: <http://www.vistrails.org/registry.xsd#> \n" +
+				"SELECT ?id ?time ?cost ?reliability WHERE {  " + 
         		"?wfpexec prov:wasAssociatedWith ?wf . " +
         		"?wf rdf:type provone:Workflow . " +
         		"?wf dc:identifier " + "\"" + wfID + "\"^^xsd:string . " +
         		"?wfpexec dc:identifier " + "\"" + runID + "\"^^xsd:string . " +
         		"?pexec provone:isPartOf ?wfpexec . " +
         		"?pexec dc:identifier ?id . " +
+        		"?pexec wfms:time ?time . " +
+        		"?pexec wfms:cost ?cost . " +
+        		"?pexec wfms:reliability ?reliability . " +
         		"}";
         Query query = QueryFactory.create(sparqlQueryString);
         QueryExecution qexec = QueryExecutionFactory.create(query, this.ds);
@@ -262,6 +266,15 @@ public class LDBDAO {
             JSONObject jsonObj = new JSONObject();
             String id = soln.getLiteral("id").getString();
             jsonObj.put("nodeId", id);
+            Double time = soln.getLiteral("time").getDouble();
+            String timeStr = String.format("%.3f", time);
+            jsonObj.put("time", timeStr);
+            Double cost = soln.getLiteral("cost").getDouble();
+            String costStr = String.format("%.3f", cost);
+            jsonObj.put("cost", costStr);
+            Double reliability = soln.getLiteral("reliability").getDouble();
+            String reliabilityStr = String.format("%.3f", reliability);
+            jsonObj.put("rebty", reliabilityStr);
             jsonObj.put("type", "activity");
             nodesHT.put(id, jsonObj);
         }

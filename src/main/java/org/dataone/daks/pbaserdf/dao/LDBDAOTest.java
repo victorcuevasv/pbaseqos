@@ -1,5 +1,8 @@
 package org.dataone.daks.pbaserdf.dao;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import com.hp.hpl.jena.query.*;
 import com.hp.hpl.jena.tdb.TDBFactory;
 
@@ -13,12 +16,14 @@ public class LDBDAOTest {
         String directory = "C:\\devp\\apache-tomcat-7.0.50\\bin\\" + args[0];
         Dataset dataset = TDBFactory.createDataset(directory);
         LDBDAOTest test = new LDBDAOTest();
+        System.out.println("Executing LDBDAOTest with directory: " + directory);
         //test.countQuery(dataset);
         //test.wfIDsQuery(dataset);
-        test.triplesQuery(dataset);
+        //test.triplesQuery(dataset);
         //test.processesQuery(dataset, "e0");
         //test.wfIDQuery(dataset, "e0");
         //test.getProcessExecNodes(dataset, "spatialtemporal_summary", "a0");
+        test.getProcessExecNodesQoS(dataset, "wf1", "wf1trace1");
         //test.getUsedDataNodes(dataset, "spatialtemporal_summary", "a0");
         //test.getWasGenByDataNodes(dataset, "spatialtemporal_summary", "a0");
         //test.getWasGenByEdges(dataset, "spatialtemporal_summary", "a0");
@@ -142,6 +147,54 @@ public class LDBDAOTest {
             System.out.println(id);
         }
         qexec.close();
+	}
+	
+	
+	public void getProcessExecNodesQoS(Dataset dataset, String wfID, String runID) {
+		String sparqlQueryString = "PREFIX provone: <http://purl.org/provone/ontology#> \n" +
+        		"PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> \n" +
+        		"PREFIX dc: <http://purl.org/dc/terms/> \n" +
+        		"PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> \n" +
+        		"PREFIX prov: <http://www.w3.org/ns/prov#> \n" +
+        		"PREFIX wfms: <http://www.vistrails.org/registry.xsd#> \n" +
+				"SELECT ?id ?time ?cost ?reliability WHERE {  " + 
+        		"?wfpexec prov:wasAssociatedWith ?wf . " +
+        		"?wf rdf:type provone:Workflow . " +
+        		"?wf dc:identifier " + "\"" + wfID + "\"^^xsd:string . " +
+        		"?wfpexec dc:identifier " + "\"" + runID + "\"^^xsd:string . " +
+        		"?pexec provone:isPartOf ?wfpexec . " +
+        		"?pexec dc:identifier ?id . " +
+        		"?pexec wfms:time ?time . " +
+        		"?pexec wfms:cost ?cost . " +
+        		"?pexec wfms:reliability ?reliability . " +
+        		"}";
+		System.out.println(sparqlQueryString);
+        Query query = QueryFactory.create(sparqlQueryString);
+        QueryExecution qexec = QueryExecutionFactory.create(query, dataset);
+        ResultSet results = qexec.execSelect();
+        try {
+        	for ( ; results.hasNext() ; ) {
+        		QuerySolution soln = results.nextSolution();
+        		JSONObject jsonObj = new JSONObject();
+        		String id = soln.getLiteral("id").getString();
+        		jsonObj.put("nodeId", id);
+        		Double time = soln.getLiteral("time").getDouble();
+        		String timeStr = String.format("%.3f", time);
+        		jsonObj.put("time", timeStr);
+        		Double cost = soln.getLiteral("cost").getDouble();
+        		String costStr = String.format("%.3f", cost);
+        		jsonObj.put("cost", costStr);
+        		Double reliability = soln.getLiteral("reliability").getDouble();
+        		String reliabilityStr = String.format("%.3f", reliability);
+				jsonObj.put("rebty", reliabilityStr);
+				jsonObj.put("type", "activity");
+				System.out.println(jsonObj.toString());
+			}
+        	qexec.close();
+        }
+        catch (JSONException e) {
+			e.printStackTrace();
+		}
 	}
     
 	

@@ -26,7 +26,7 @@ public class DigraphJSONtoRDF {
 	private static final String PROV_NS = "http://www.w3.org/ns/prov#";
 	private static final String DCTERMS_NS = "http://purl.org/dc/terms/";
 	private static final String EXAMPLE_NS = "http://example.com/";
-	private static final String WFMS_NS = "http://www.vistrails.org/registry.xsd";
+	private static final String WFMS_NS = "http://www.vistrails.org/registry.xsd#";
 	private static final String RDFS_NS = "http://www.w3.org/2000/01/rdf-schema#";
 	private static final String RDF_NS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
 	private static final String SOURCE_URL = "http://purl.org/provone/ontology";
@@ -387,11 +387,11 @@ public class DigraphJSONtoRDF {
 	
 	private void createQoSObjectProperties(String pExecIndId, double time, double cost, double reliability) {
 		Individual pExecInd = this.idToInd.get(pExecIndId);
-		Property timeOP = this.model.createProperty(WFMS_NS + "#" + "time");
+		Property timeOP = this.model.createProperty(WFMS_NS + "time");
 		pExecInd.addProperty(timeOP, time + "", XSDDatatype.XSDdouble);
-		Property costOP = this.model.createProperty(WFMS_NS + "#" + "cost");
+		Property costOP = this.model.createProperty(WFMS_NS + "cost");
 		pExecInd.addProperty(costOP, cost + "", XSDDatatype.XSDdouble);
-		Property reliabilityOP = this.model.createProperty(WFMS_NS + "#" + "reliability");
+		Property reliabilityOP = this.model.createProperty(WFMS_NS + "reliability");
 		pExecInd.addProperty(reliabilityOP, reliability + "", XSDDatatype.XSDdouble);
 	}
 	
