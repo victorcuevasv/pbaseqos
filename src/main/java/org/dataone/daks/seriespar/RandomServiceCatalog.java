@@ -147,6 +147,11 @@ public class RandomServiceCatalog {
 	}
 	
 	
+	public void addQoSMetrics(String servName, QoSMetrics qosMetrics) {
+		this.ht.put(servName, qosMetrics);
+	}
+	
+	
 	public static int randInt(Random rand, int min, int max) {
 	    int randomNum = rand.nextInt((max - min) + 1) + min;
 	    return randomNum;
@@ -159,7 +164,7 @@ public class RandomServiceCatalog {
 	}
 	
 	
-	private List<String> generateServiceList(String phrase) {
+	public List<String> generateServiceList(String phrase) {
 		StringTokenizer tokenizer = new StringTokenizer(phrase);
 		List<String> servList = new ArrayList<String>();
 		while( tokenizer.hasMoreTokens() ) {

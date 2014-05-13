@@ -213,10 +213,12 @@ public class LDBDAO {
     public String getWorkflow(String wfID) {
     	JSONArray processesArray = this.getProcesses(wfID);
     	JSONArray edgesArray = this.getDataLinks(wfID);
+    	JSONObject qosMetricsObj = this.getAggQoSMetrics(wfID);
     	JSONObject jsonObj = new JSONObject();
     	try {
 			jsonObj.put("nodes", processesArray);
 			jsonObj.put("edges", edgesArray);
+			jsonObj.put("qosmetrics", qosMetricsObj);
 		}
     	catch (JSONException e) {
 			e.printStackTrace();
@@ -571,6 +573,57 @@ public class LDBDAO {
 			qexec.close();
 		}
 		return retVal;
+	}	
+	
+	
+	public JSONObject getAggQoSMetrics(String wfID) {
+		String sparqlQueryString = "PREFIX provone: <http://purl.org/provone/ontology#> \n" +
+        		"PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> \n" +
+        		"PREFIX dc: <http://purl.org/dc/terms/> \n" +
+        		"PREFIX wfms: <http://www.vistrails.org/registry.xsd#> \n" +
+        		"PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> \n" +
+        		"SELECT ?aggavgtime ?aggavgcost ?aggavgreliability " + 
+        		"WHERE { " +
+        		"?wf rdf:type provone:Workflow . " +
+        		"?wf dc:identifier " + "\"" + wfID + "\"^^xsd:string . " +
+        		"OPTIONAL { ?wf wfms:aggavgtime ?aggavgtime } . " +
+        		"OPTIONAL { ?wf wfms:aggavgcost ?aggavgcost } . " +
+        		"OPTIONAL { ?wf wfms:aggavgreliability ?aggavgreliability } . " +
+        		"}";
+        Query query = QueryFactory.create(sparqlQueryString);
+        QueryExecution qexec = QueryExecutionFactory.create(query, this.ds);
+        ResultSet results = qexec.execSelect();
+        JSONObject qosMetricsObj = new JSONObject();
+        try {
+        	for ( ; results.hasNext() ; ) {
+        		QuerySolution soln = results.nextSolution();
+	            Literal aggavgtimeLit = soln.getLiteral("aggavgtime");
+	            if( aggavgtimeLit != null ) {
+	            	double aggavgtime = aggavgtimeLit.getDouble();
+	            	String aggavgtimeStr = String.format("%.3f", aggavgtime);
+	            	qosMetricsObj.put("aggavgtime", aggavgtimeStr);
+	            }
+	            Literal aggavgcostLit = soln.getLiteral("aggavgcost");
+	            if( aggavgcostLit != null ) {
+	            	double aggavgcost = aggavgcostLit.getDouble();
+	            	String aggavgcostStr = String.format("%.3f", aggavgcost);
+	            	qosMetricsObj.put("aggavgcost", aggavgcostStr);
+	            }
+	            Literal aggavgreliabilityLit = soln.getLiteral("aggavgreliability");
+	            if( aggavgreliabilityLit != null ) {
+	            	double aggavgreliability = aggavgreliabilityLit.getDouble();
+	            	String aggavgreliabilityStr = String.format("%.3f", aggavgreliability);
+	            	qosMetricsObj.put("aggavgrebty", aggavgreliabilityStr);
+	            }
+	            //Multiple results should not be produced
+	            break;
+			}
+        }
+        catch (JSONException e) {
+			e.printStackTrace();
+		}
+        qexec.close();
+        return qosMetricsObj;
 	}
 	
 	

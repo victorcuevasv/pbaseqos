@@ -10,6 +10,11 @@ import java.util.Set;
 import java.util.StringTokenizer;
 
 import org.json.*;
+import org.antlr.runtime.ANTLRStringStream;
+import org.antlr.runtime.CommonTokenStream;
+import org.antlr.runtime.RecognitionException;
+import org.antlr.runtime.tree.CommonTreeNodeStream;
+import org.antlr.runtime.tree.Tree;
 import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.riot.RDFFormat;
 import org.dataone.daks.pbaserdf.dao.LDBDAO;
@@ -41,6 +46,7 @@ public class DigraphJSONtoRDFQoS {
 	private RandomServiceCatalog globalMetricsCatalog;
 	private HashMap<String, Integer> globalMetricsCountHT;
 	private HashMap<String, Activity> activitiesHT;
+	private HashMap<String, String> wfAggActivitiesHT;
 	
 	
 	public DigraphJSONtoRDFQoS() {
@@ -50,6 +56,7 @@ public class DigraphJSONtoRDFQoS {
 		this.globalMetricsCatalog = new RandomServiceCatalog();
 		this.globalMetricsCountHT = new HashMap<String, Integer>();
 		this.activitiesHT = new HashMap<String, Activity>();
+		this.wfAggActivitiesHT = new HashMap<String, String>();
 	}
 	
 	
@@ -77,6 +84,10 @@ public class DigraphJSONtoRDFQoS {
 		}
 		converter.generateGlobalMetrics(args[3]);
 		converter.addGlobalMetricsToModel();
+		for(String wfName: wfNamesList) {
+			QoSMetrics aggGlobalMetrics = converter.generateAggGlobalMetrics(args[0], wfName);
+			converter.addAggGlobalMetricsToModel(wfName, aggGlobalMetrics);
+		}
 		converter.saveModelAsXMLRDF();
 		converter.createTDBDatabase(DBNAME);
 	}
@@ -180,6 +191,7 @@ public class DigraphJSONtoRDFQoS {
 					this.createServiceObjectProperty(processIndId, service);
 					Activity activity = new Activity(wfID, nodeId, service);
 					this.activitiesHT.put(processIndId, activity);
+					this.wfAggActivitiesHT.put(wfID + "_" + nodeId, service);
 				}
 				// Generate InputPort and OutputPort entities
 				List<String> nodeRevAdjList = revDigraph.getAdjList(nodeId);
@@ -502,6 +514,47 @@ public class DigraphJSONtoRDFQoS {
 	}
 	
 	
+	private QoSMetrics generateAggGlobalMetrics(String folder, String wfID) {
+		String wfText = this.readFile(folder + "/" + wfID + ".txt");
+		QoSMetrics qosMetrics = null;
+    	ANTLRStringStream input = new ANTLRStringStream(wfText);
+    	ASMSimpleLexer lexer = new ASMSimpleLexer(input);
+    	CommonTokenStream tokens = new CommonTokenStream(lexer);
+    	ASMSimpleParser parser = new ASMSimpleParser(tokens);
+    	ASMSimpleParser.asm_return result = null;
+		try {
+			result = parser.asm();
+		}
+		catch (RecognitionException e) {
+			e.printStackTrace();
+		}
+    	Tree t = (Tree)result.getTree();    	
+        CommonTreeNodeStream nodes = new CommonTreeNodeStream(t);
+        nodes.setTokenStream(tokens);
+        ASMSimpleGraphQoS walker = new ASMSimpleGraphQoS(nodes);
+        //The generateServiceList method is generic and only depends on the supplied string
+        //in this case the list will contain activity names, not the bound services names
+        List<String> activityNodes = this.globalMetricsCatalog.generateServiceList(wfText);
+        RandomServiceCatalog tempCatalog = new RandomServiceCatalog();
+        for( String activity: activityNodes ) {
+        	String service = this.wfAggActivitiesHT.get(wfID + "_" + activity);
+        	QoSMetrics m = this.globalMetricsCatalog.getQoSMetrics(service);
+        	tempCatalog.addQoSMetrics(activity, m);
+        }
+        walker.catalog = tempCatalog;
+        try {
+			walker.asm();
+			ASTtoDigraph astToDigraph = walker.astToDigraph;
+			WFComponentQoS topComponent = walker.topComponent;
+			qosMetrics = topComponent.getQoSMetrics();
+		}
+        catch (RecognitionException e) {
+			e.printStackTrace();
+		}
+		return qosMetrics;
+	}
+	
+	
 	private void addGlobalMetricsToModel() {
 		Set<String> keyList = this.activitiesHT.keySet();
 		for( String activityKey: keyList ) {
@@ -515,6 +568,17 @@ public class DigraphJSONtoRDFQoS {
 			Property gReliabilityOP = this.model.createProperty(WFMS_NS + "avgreliability");
 			processInd.addProperty(gReliabilityOP, gMetrics.getReliability() + "", XSDDatatype.XSDdouble);
 		}
+	}
+	
+	
+	private void addAggGlobalMetricsToModel(String wfID, QoSMetrics qosMetrics) {
+		Individual wfInd = this.idToInd.get(wfID);
+		Property aggGlobalTimeOP = this.model.createProperty(WFMS_NS + "aggavgtime");
+		wfInd.addProperty(aggGlobalTimeOP, qosMetrics.getTime() + "", XSDDatatype.XSDdouble);
+		Property aggGlobalCostOP = this.model.createProperty(WFMS_NS + "aggavgcost");
+		wfInd.addProperty(aggGlobalCostOP, qosMetrics.getCost() + "", XSDDatatype.XSDdouble);
+		Property aggGlobalReliabilityOP = this.model.createProperty(WFMS_NS + "aggavgreliability");
+		wfInd.addProperty(aggGlobalReliabilityOP, qosMetrics.getReliability() + "", XSDDatatype.XSDdouble);
 	}
 	
 	

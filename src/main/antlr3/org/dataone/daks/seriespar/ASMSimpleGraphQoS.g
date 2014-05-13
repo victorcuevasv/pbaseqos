@@ -19,8 +19,7 @@ options {
 	String endNode = null;
         int parIndex = 1;
 	ASTtoDigraph astToDigraph = new ASTtoDigraph();
-        RandomServiceCatalog catalog = new RandomServiceCatalog();
-        String catalogFile;
+        RandomServiceCatalog catalog;
         WFComponentQoS topComponent;
 }
 
@@ -33,7 +32,7 @@ options {
 
 
 asm
-	:	^(ASM { catalog.initializeFromJSONFile(catalogFile); } 
+	:	^(ASM { ; } 
                 ^(BLOCK { startNode = "start"; endNode = "end"; } 
                 (r=rule{ astToDigraph.linkNodes(startNode, $r.ruleWFCQoS.start);
                          astToDigraph.linkNodes($r.ruleWFCQoS.end, endNode);
