@@ -94,9 +94,16 @@ public class LDBDAO {
         		"PREFIX dc: <http://purl.org/dc/terms/> \n" +
         		"PREFIX wfms: <http://www.vistrails.org/registry.xsd#> \n" +
         		"PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> \n" +
-        		"SELECT ?i ?t ?service WHERE {  ?process dc:identifier ?i . " +
+        		"SELECT ?i ?t ?service ?avgtime ?avgcost ?avgreliability ?wfavgtime ?wfavgcost ?wfavgreliability " + 
+        		"WHERE {  ?process dc:identifier ?i . " +
         		"?process dc:title ?t . " +
         		"OPTIONAL { ?process wfms:service ?service } . " +
+        		"OPTIONAL { ?process wfms:avgtime ?avgtime } . " +
+        		"OPTIONAL { ?process wfms:avgcost ?avgcost } . " +
+        		"OPTIONAL { ?process wfms:avgreliability ?avgreliability } . " +
+        		"OPTIONAL { ?process wfms:wfavgtime ?wfavgtime } . " +
+        		"OPTIONAL { ?process wfms:wfavgcost ?wfavgcost } . " +
+        		"OPTIONAL { ?process wfms:wfavgreliability ?wfavgreliability } . " +
         		"?process rdf:type provone:Process . " + 
         		"?wf rdf:type provone:Workflow . " +
         		"?wf dc:identifier " + "\"" + wfID + "\"^^xsd:string . " +
@@ -116,6 +123,42 @@ public class LDBDAO {
 	            Literal serviceLit = soln.getLiteral("service");
 	            if( serviceLit != null )
 	            	nodeObj.put("service", serviceLit.getString());
+	            Literal avgtimeLit = soln.getLiteral("avgtime");
+	            if( avgtimeLit != null ) {
+	            	double avgtime = avgtimeLit.getDouble();
+	            	String avgtimeStr = String.format("%.3f", avgtime);
+	            	nodeObj.put("avgtime", avgtimeStr);
+	            }
+	            Literal avgcostLit = soln.getLiteral("avgcost");
+	            if( avgcostLit != null ) {
+	            	double avgcost = avgcostLit.getDouble();
+	            	String avgcostStr = String.format("%.3f", avgcost);
+	            	nodeObj.put("avgcost", avgcostStr);
+	            }
+	            Literal avgreliabilityLit = soln.getLiteral("avgreliability");
+	            if( avgreliabilityLit != null ) {
+	            	double avgreliability = avgreliabilityLit.getDouble();
+	            	String avgreliabilityStr = String.format("%.3f", avgreliability);
+	            	nodeObj.put("avgrebty", avgreliabilityStr);
+	            }
+	            Literal wfavgtimeLit = soln.getLiteral("wfavgtime");
+	            if( wfavgtimeLit != null ) {
+	            	double wfavgtime = wfavgtimeLit.getDouble();
+	            	String wfavgtimeStr = String.format("%.3f", wfavgtime);
+	            	nodeObj.put("wfavgtime", wfavgtimeStr);
+	            }
+	            Literal wfavgcostLit = soln.getLiteral("wfavgcost");
+	            if( wfavgcostLit != null ) {
+	            	double wfavgcost = wfavgcostLit.getDouble();
+	            	String wfavgcostStr = String.format("%.3f", wfavgcost);
+	            	nodeObj.put("wfavgcost", wfavgcostStr);
+	            }
+	            Literal wfavgreliabilityLit = soln.getLiteral("wfavgreliability");
+	            if( wfavgreliabilityLit != null ) {
+	            	double wfavgreliability = wfavgreliabilityLit.getDouble();
+	            	String wfavgreliabilityStr = String.format("%.3f", wfavgreliability);
+	            	nodeObj.put("wfavgrebty", wfavgreliabilityStr);
+	            }
 	            nodesArray.put(nodeObj);
 			}
         }

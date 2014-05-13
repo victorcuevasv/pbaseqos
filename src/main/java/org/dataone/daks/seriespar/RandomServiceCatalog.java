@@ -22,7 +22,7 @@ public class RandomServiceCatalog {
 	
 	
 	public RandomServiceCatalog() {
-		
+		this.ht = new Hashtable<String, QoSMetrics>();
 	}
 
 	
@@ -36,7 +36,6 @@ public class RandomServiceCatalog {
 	
 	
 	public void initializeRandom(List<String> serviceNames) {
-		this.ht = new Hashtable<String, QoSMetrics>();
 		Random rand = new Random();
 		for( String servName : serviceNames ) {
 			double time = randDouble(rand, 1.0, 10.0);
@@ -52,7 +51,6 @@ public class RandomServiceCatalog {
 	
 	
 	public void initializeFromJSONString(String jsonStr) {
-		this.ht = new Hashtable<String, QoSMetrics>();
 		try {
 			JSONArray jsonArray = new JSONArray(jsonStr);
 			for( int i = 0; i < jsonArray.length(); i++ ) {
@@ -69,6 +67,14 @@ public class RandomServiceCatalog {
 		catch(JSONException e) {
 			e.printStackTrace();
 		}
+	}
+	
+	
+	public void initializeSetZero(List<String> servicesList) {
+		for( String service: servicesList ) {
+			QoSMetrics qosMetrics = new QoSMetrics(0.0, 0.0, 0.0);
+			this.ht.put(service, qosMetrics);
+		}		
 	}
 	
 	
