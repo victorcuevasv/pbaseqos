@@ -213,12 +213,14 @@ public class LDBDAO {
     public String getWorkflow(String wfID) {
     	JSONArray processesArray = this.getProcesses(wfID);
     	JSONArray edgesArray = this.getDataLinks(wfID);
-    	JSONObject qosMetricsObj = this.getAggQoSMetrics(wfID);
+    	JSONObject gqosMetricsObj = this.getAggQoSMetrics(wfID);
+    	JSONObject wfqosMetricsObj = this.getWfAggQoSMetrics(wfID);
     	JSONObject jsonObj = new JSONObject();
     	try {
 			jsonObj.put("nodes", processesArray);
 			jsonObj.put("edges", edgesArray);
-			jsonObj.put("qosmetrics", qosMetricsObj);
+			jsonObj.put("gqosmetrics", gqosMetricsObj);
+			jsonObj.put("wfqosmetrics", wfqosMetricsObj);
 		}
     	catch (JSONException e) {
 			e.printStackTrace();
@@ -614,6 +616,57 @@ public class LDBDAO {
 	            	double aggavgreliability = aggavgreliabilityLit.getDouble();
 	            	String aggavgreliabilityStr = String.format("%.3f", aggavgreliability);
 	            	qosMetricsObj.put("aggavgrebty", aggavgreliabilityStr);
+	            }
+	            //Multiple results should not be produced
+	            break;
+			}
+        }
+        catch (JSONException e) {
+			e.printStackTrace();
+		}
+        qexec.close();
+        return qosMetricsObj;
+	}
+	
+	
+	public JSONObject getWfAggQoSMetrics(String wfID) {
+		String sparqlQueryString = "PREFIX provone: <http://purl.org/provone/ontology#> \n" +
+        		"PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> \n" +
+        		"PREFIX dc: <http://purl.org/dc/terms/> \n" +
+        		"PREFIX wfms: <http://www.vistrails.org/registry.xsd#> \n" +
+        		"PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> \n" +
+        		"SELECT ?wfaggavgtime ?wfaggavgcost ?wfaggavgreliability " + 
+        		"WHERE { " +
+        		"?wf rdf:type provone:Workflow . " +
+        		"?wf dc:identifier " + "\"" + wfID + "\"^^xsd:string . " +
+        		"OPTIONAL { ?wf wfms:wfaggavgtime ?wfaggavgtime } . " +
+        		"OPTIONAL { ?wf wfms:wfaggavgcost ?wfaggavgcost } . " +
+        		"OPTIONAL { ?wf wfms:wfaggavgreliability ?wfaggavgreliability } . " +
+        		"}";
+        Query query = QueryFactory.create(sparqlQueryString);
+        QueryExecution qexec = QueryExecutionFactory.create(query, this.ds);
+        ResultSet results = qexec.execSelect();
+        JSONObject qosMetricsObj = new JSONObject();
+        try {
+        	for ( ; results.hasNext() ; ) {
+        		QuerySolution soln = results.nextSolution();
+	            Literal wfaggavgtimeLit = soln.getLiteral("wfaggavgtime");
+	            if( wfaggavgtimeLit != null ) {
+	            	double wfaggavgtime = wfaggavgtimeLit.getDouble();
+	            	String wfaggavgtimeStr = String.format("%.3f", wfaggavgtime);
+	            	qosMetricsObj.put("wfaggavgtime", wfaggavgtimeStr);
+	            }
+	            Literal wfaggavgcostLit = soln.getLiteral("wfaggavgcost");
+	            if( wfaggavgcostLit != null ) {
+	            	double wfaggavgcost = wfaggavgcostLit.getDouble();
+	            	String wfaggavgcostStr = String.format("%.3f", wfaggavgcost);
+	            	qosMetricsObj.put("wfaggavgcost", wfaggavgcostStr);
+	            }
+	            Literal wfaggavgreliabilityLit = soln.getLiteral("wfaggavgreliability");
+	            if( wfaggavgreliabilityLit != null ) {
+	            	double wfaggavgreliability = wfaggavgreliabilityLit.getDouble();
+	            	String wfaggavgreliabilityStr = String.format("%.3f", wfaggavgreliability);
+	            	qosMetricsObj.put("wfaggavgrebty", wfaggavgreliabilityStr);
 	            }
 	            //Multiple results should not be produced
 	            break;

@@ -46,7 +46,7 @@ public class DigraphJSONtoRDFQoS {
 	private RandomServiceCatalog globalMetricsCatalog;
 	private HashMap<String, Integer> globalMetricsCountHT;
 	private HashMap<String, Activity> activitiesHT;
-	private HashMap<String, String> wfAggActivitiesHT;
+	private HashMap<String, String> wfActivitiesBindingsHT;
 	
 	
 	public DigraphJSONtoRDFQoS() {
@@ -56,7 +56,7 @@ public class DigraphJSONtoRDFQoS {
 		this.globalMetricsCatalog = new RandomServiceCatalog();
 		this.globalMetricsCountHT = new HashMap<String, Integer>();
 		this.activitiesHT = new HashMap<String, Activity>();
-		this.wfAggActivitiesHT = new HashMap<String, String>();
+		this.wfActivitiesBindingsHT = new HashMap<String, String>();
 	}
 	
 	
@@ -72,6 +72,7 @@ public class DigraphJSONtoRDFQoS {
 		String folder = args[0];
 		for(String wfName: wfNamesList) {
 			String wfJSONStr = converter.readFile(folder + "/" + wfName + ".json");
+			String wfText = converter.readFile(folder + "/" + wfName + ".txt");
 			converter.createRDFWFFromJSONString(wfJSONStr, wfName);
 			int nTraces = numTracesHT.get(wfName);
 			HashMap<String, QoSMetrics> wfMetricsHT = new HashMap<String, QoSMetrics>();
@@ -81,15 +82,37 @@ public class DigraphJSONtoRDFQoS {
 				converter.createRDFTraceFromJSONString(traceJSONStr, wfName, i, wfMetricsHT, wfCountHT);
 			}
 			converter.addWFMetricsToModel(wfMetricsHT, wfCountHT);
+			RandomServiceCatalog wfAggCatalog = converter.createWfAggCatalog(wfMetricsHT, wfName, wfText);
+			QoSMetrics wfAggMetrics = converter.generateAggMetrics(args[0], wfName, wfAggCatalog);
+			converter.addWfAggMetricsToModel(wfName, wfAggMetrics);
 		}
 		converter.generateGlobalMetrics(args[3]);
 		converter.addGlobalMetricsToModel();
 		for(String wfName: wfNamesList) {
-			QoSMetrics aggGlobalMetrics = converter.generateAggGlobalMetrics(args[0], wfName);
+			QoSMetrics aggGlobalMetrics = converter.generateAggMetrics(args[0], wfName, converter.globalMetricsCatalog);   
 			converter.addAggGlobalMetricsToModel(wfName, aggGlobalMetrics);
 		}
 		converter.saveModelAsXMLRDF();
 		converter.createTDBDatabase(DBNAME);
+	}
+	
+	
+	//The HashMap ht contains keys of the form wfID_service 
+	private RandomServiceCatalog createWfAggCatalog(HashMap<String, QoSMetrics> ht, String wfID, String wfText) {
+		RandomServiceCatalog catalog = new RandomServiceCatalog();
+		List<String> activities = catalog.generateServiceList(wfText);
+		List<String> services = new ArrayList<String>();
+		for( String activity : activities ) {
+			String service = this.wfActivitiesBindingsHT.get(wfID + "_" + activity);
+			services.add(service);
+		}
+		catalog.initializeSetZero(services);
+		for( String service : services ) {
+			QoSMetrics metrics = ht.get(wfID + "_" + service);
+			if( metrics != null )
+				catalog.addQoSMetrics(service, metrics);
+		}
+		return catalog;
 	}
 	
 	
@@ -191,7 +214,7 @@ public class DigraphJSONtoRDFQoS {
 					this.createServiceObjectProperty(processIndId, service);
 					Activity activity = new Activity(wfID, nodeId, service);
 					this.activitiesHT.put(processIndId, activity);
-					this.wfAggActivitiesHT.put(wfID + "_" + nodeId, service);
+					this.wfActivitiesBindingsHT.put(wfID + "_" + nodeId, service);
 				}
 				// Generate InputPort and OutputPort entities
 				List<String> nodeRevAdjList = revDigraph.getAdjList(nodeId);
@@ -514,7 +537,7 @@ public class DigraphJSONtoRDFQoS {
 	}
 	
 	
-	private QoSMetrics generateAggGlobalMetrics(String folder, String wfID) {
+	private QoSMetrics generateAggMetrics(String folder, String wfID, RandomServiceCatalog catalog) {
 		String wfText = this.readFile(folder + "/" + wfID + ".txt");
 		QoSMetrics qosMetrics = null;
     	ANTLRStringStream input = new ANTLRStringStream(wfText);
@@ -534,17 +557,16 @@ public class DigraphJSONtoRDFQoS {
         ASMSimpleGraphQoS walker = new ASMSimpleGraphQoS(nodes);
         //The generateServiceList method is generic and only depends on the supplied string
         //in this case the list will contain activity names, not the bound services names
-        List<String> activityNodes = this.globalMetricsCatalog.generateServiceList(wfText);
+        List<String> activityNodes = catalog.generateServiceList(wfText);
         RandomServiceCatalog tempCatalog = new RandomServiceCatalog();
         for( String activity: activityNodes ) {
-        	String service = this.wfAggActivitiesHT.get(wfID + "_" + activity);
-        	QoSMetrics m = this.globalMetricsCatalog.getQoSMetrics(service);
+        	String service = this.wfActivitiesBindingsHT.get(wfID + "_" + activity);
+        	QoSMetrics m = catalog.getQoSMetrics(service);
         	tempCatalog.addQoSMetrics(activity, m);
         }
         walker.catalog = tempCatalog;
         try {
 			walker.asm();
-			ASTtoDigraph astToDigraph = walker.astToDigraph;
 			WFComponentQoS topComponent = walker.topComponent;
 			qosMetrics = topComponent.getQoSMetrics();
 		}
@@ -592,14 +614,31 @@ public class DigraphJSONtoRDFQoS {
 			if( count == null )
 				count = 0;
 			if( count > 0 ) {
+				double time = wfMetrics.getTime() / count;
+				double cost = wfMetrics.getCost() / count;
+				double reliability = wfMetrics.getReliability() / count;
 				Property wfTimeOP = this.model.createProperty(WFMS_NS + "wfavgtime");
-				processInd.addProperty(wfTimeOP, wfMetrics.getTime() / count + "", XSDDatatype.XSDdouble);
+				processInd.addProperty(wfTimeOP, time + "", XSDDatatype.XSDdouble);
+				wfMetrics.setTime(time);
 				Property wfCostOP = this.model.createProperty(WFMS_NS + "wfavgcost");
-				processInd.addProperty(wfCostOP, wfMetrics.getCost() / count + "", XSDDatatype.XSDdouble);
+				processInd.addProperty(wfCostOP, cost + "", XSDDatatype.XSDdouble);
+				wfMetrics.setCost(cost);
 				Property wfReliabilityOP = this.model.createProperty(WFMS_NS + "wfavgreliability");
-				processInd.addProperty(wfReliabilityOP, wfMetrics.getReliability() / count + "", XSDDatatype.XSDdouble);
+				processInd.addProperty(wfReliabilityOP, reliability + "", XSDDatatype.XSDdouble);
+				wfMetrics.setReliability(reliability);
 			}
 		}
+	}
+	
+	
+	private void addWfAggMetricsToModel(String wfID, QoSMetrics qosMetrics) {
+		Individual wfInd = this.idToInd.get(wfID);
+		Property wfAggTimeOP = this.model.createProperty(WFMS_NS + "wfaggavgtime");
+		wfInd.addProperty(wfAggTimeOP, qosMetrics.getTime() + "", XSDDatatype.XSDdouble);
+		Property wfAggCostOP = this.model.createProperty(WFMS_NS + "wfaggavgcost");
+		wfInd.addProperty(wfAggCostOP, qosMetrics.getCost() + "", XSDDatatype.XSDdouble);
+		Property wfAggReliabilityOP = this.model.createProperty(WFMS_NS + "wfaggavgreliability");
+		wfInd.addProperty(wfAggReliabilityOP, qosMetrics.getReliability() + "", XSDDatatype.XSDdouble);
 	}
 	
 	
