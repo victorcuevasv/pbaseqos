@@ -232,6 +232,8 @@ public class LDBDAO {
     public String getWorkflowReachEncoding(String wfID) {
     	JSONArray nodesArray = this.getProcesses(wfID);
     	JSONArray edgesArray = this.getDataLinks(wfID);
+    	JSONObject gqosMetricsObj = this.getAggQoSMetrics(wfID);
+    	JSONObject wfqosMetricsObj = this.getWfAggQoSMetrics(wfID);
     	JSONObject jsonObj = new JSONObject();
     	try {
     		Digraph coverDigraph = new Digraph();
@@ -249,6 +251,8 @@ public class LDBDAO {
     		}
 			jsonObj.put("nodes", nodesArray);
 			jsonObj.put("edges", edgesArray);
+			jsonObj.put("gqosmetrics", gqosMetricsObj);
+			jsonObj.put("wfqosmetrics", wfqosMetricsObj);
 		}
     	catch (JSONException e) {
 			e.printStackTrace();

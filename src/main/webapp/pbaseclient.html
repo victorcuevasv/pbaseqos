@@ -609,6 +609,13 @@ function callWfWS(Y) {
 			complete: function (id, response) {
 				if (response.status >= 200 && response.status < 300) {
 					var json = Y.JSON.parse(response.responseText);
+					//!! edited to display aggregate qos properties
+					var gqosmetrics = json.gqosmetrics;
+					var wfqosmetrics = json.wfqosmetrics;
+					if ( gqosmetrics != null && wfqosmetrics != null ) {
+						//alert(gqosmetrics + '   ' + wfqosmetrics);
+						displayQoSAggMetrics(gqosmetrics, wfqosmetrics, Y);
+					}
 					displayGraphJSON(container, json, btnContainer, isTrace, Y);
 				}
 				else {
@@ -875,6 +882,24 @@ function highlightReachability(graph, graphNodesArray) {
 		graph['reachHighlighted'] = !graph['reachHighlighted'];
 		graph.getModel().endUpdate();
 	}
+}
+
+
+function displayQoSAggMetrics(gqosmetrics, wfqosmetrics, Y) {
+	//Set the global QoS properties
+	var aggavgtimeQoSTextfield = Y.one('#aggavgtimeQoSTextfield');
+	aggavgtimeQoSTextfield.set('value', gqosmetrics.aggavgtime);
+	var aggavgcostQoSTextfield = Y.one('#aggavgcostQoSTextfield');
+	aggavgcostQoSTextfield.set('value', gqosmetrics.aggavgcost);
+	var aggavgrebtyQoSTextfield = Y.one('#aggavgrebtyQoSTextfield');
+	aggavgrebtyQoSTextfield.set('value', gqosmetrics.aggavgrebty);
+	//Set the workflow QoS properties
+	var wfaggavgtimeQoSTextfield = Y.one('#wfaggavgtimeQoSTextfield');
+	wfaggavgtimeQoSTextfield.set('value', wfqosmetrics.wfaggavgtime);
+	var wfaggavgcostQoSTextfield = Y.one('#wfaggavgcostQoSTextfield');
+	wfaggavgcostQoSTextfield.set('value', wfqosmetrics.wfaggavgcost);
+	var wfaggavgrebtyQoSTextfield = Y.one('#wfaggavgrebtyQoSTextfield');
+	wfaggavgrebtyQoSTextfield.set('value', wfqosmetrics.wfaggavgrebty);
 }
 
 
