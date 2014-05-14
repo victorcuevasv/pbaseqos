@@ -404,7 +404,47 @@ public class Digraph {
         }
         return s.toString();
     }
+    
+    
+    /**
+     * Get a list of the vertices in the graph.
+     */
+    public List<String> getVertices() {
+        List<String> list = new ArrayList<String>();
+        for ( int i = 0; i < this.adj.size(); i++ ) {
+            String v = this.posIndex.inverse().get(i);
+            list.add(v);
+        }
+        return list;
+    }
+    
+    
+    public void toDotFile(String filename, boolean btRankdir) {
+        StringBuilder s = new StringBuilder();
+        String NEWLINE = System.getProperty("line.separator");
+        s.append("digraph dag {" + NEWLINE);
+        if( btRankdir )
+        	s.append("rankdir = BT;" + NEWLINE);
+        for ( int i = 0; i < this.adj.size(); i++ ) {
+            String v1 = this.posIndex.inverse().get(i);
+            Iterator<String> it = this.getAdjListAt(i).iterator();
+            while ( it.hasNext() ) {
+            	String v2 = it.next();
+            	s.append("\t" + v1 + " -> " + v2 + ";" + NEWLINE);
+            }
+        }
+        s.append("}");
+        try {
+			BufferedWriter writer = new BufferedWriter(new FileWriter(filename));
+			writer.write(s.toString());
+			writer.close();
+		}
+        catch (IOException e) {
+			e.printStackTrace();
+		}
+    }
 
+    
    /**
      * Test client.
      */

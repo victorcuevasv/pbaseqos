@@ -4,6 +4,8 @@ package org.dataone.daks.seriespar;
 import org.antlr.runtime.*;
 import org.antlr.runtime.tree.*;
 
+import org.dataone.daks.pbase.treecover.Digraph;
+
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Hashtable;

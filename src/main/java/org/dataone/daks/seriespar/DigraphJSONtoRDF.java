@@ -18,6 +18,8 @@ import com.hp.hpl.jena.ontology.*;
 import com.hp.hpl.jena.rdf.model.*;
 import com.hp.hpl.jena.util.FileManager;
 
+import org.dataone.daks.pbase.treecover.Digraph;
+
 
 public class DigraphJSONtoRDF {
 	

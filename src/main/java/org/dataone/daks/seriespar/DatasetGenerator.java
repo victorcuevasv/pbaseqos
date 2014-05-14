@@ -15,6 +15,7 @@ import org.antlr.runtime.*;
 import org.antlr.runtime.tree.CommonTreeNodeStream;
 import org.antlr.runtime.tree.Tree;
 
+import org.dataone.daks.pbase.treecover.Digraph;
 
 public class DatasetGenerator {
 	

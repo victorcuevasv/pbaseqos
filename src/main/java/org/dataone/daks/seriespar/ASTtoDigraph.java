@@ -1,6 +1,8 @@
 
 package org.dataone.daks.seriespar;
 
+import org.dataone.daks.pbase.treecover.Digraph;
+
 
 
 public class ASTtoDigraph {

@@ -24,6 +24,8 @@ import com.hp.hpl.jena.ontology.*;
 import com.hp.hpl.jena.rdf.model.*;
 import com.hp.hpl.jena.util.FileManager;
 
+import org.dataone.daks.pbase.treecover.Digraph;
+
 
 public class DigraphJSONtoRDFQoS {
 	
@@ -81,6 +83,7 @@ public class DigraphJSONtoRDFQoS {
 				String traceJSONStr = converter.readFile(folder + "/" + wfName + "trace" + i + ".json");
 				converter.createRDFTraceFromJSONString(traceJSONStr, wfName, i, wfMetricsHT, wfCountHT);
 			}
+			//addWFMetricsToModel modifies wfMetricsHT
 			converter.addWFMetricsToModel(wfMetricsHT, wfCountHT);
 			RandomServiceCatalog wfAggCatalog = converter.createWfAggCatalog(wfMetricsHT, wfName, wfText);
 			QoSMetrics wfAggMetrics = converter.generateAggMetrics(args[0], wfName, wfAggCatalog);
@@ -606,6 +609,8 @@ public class DigraphJSONtoRDFQoS {
 	
 	private void addWFMetricsToModel(HashMap<String, QoSMetrics> wfMetricsHT, HashMap<String, Integer> wfCountHT) {
 		Set<String> keyList = this.activitiesHT.keySet();
+		//Necessary to check for multiple activities bound to the same service
+		HashMap<String, Boolean> seenKeys = new HashMap<String, Boolean>();
 		for( String activityKey: keyList ) {
 			Individual processInd = this.idToInd.get(activityKey);
 			Activity activity = this.activitiesHT.get(activityKey);
@@ -613,10 +618,21 @@ public class DigraphJSONtoRDFQoS {
 			Integer count = wfCountHT.get(activity.wfID + "_" + activity.service);
 			if( count == null )
 				count = 0;
+			double time = 0.0;
+			double cost = 0.0;
+			double reliability = 0.0;
+			if( count > 0 && seenKeys.get(activity.wfID + "_" + activity.service) == null ) {
+				time = wfMetrics.getTime() / count;
+				cost = wfMetrics.getCost() / count;
+				reliability = wfMetrics.getReliability() / count;
+				wfMetrics.setTime(time);
+				wfMetrics.setCost(cost);
+				wfMetrics.setReliability(reliability);
+			}
 			if( count > 0 ) {
-				double time = wfMetrics.getTime() / count;
-				double cost = wfMetrics.getCost() / count;
-				double reliability = wfMetrics.getReliability() / count;
+				time = wfMetrics.getTime();
+				cost = wfMetrics.getCost();
+				reliability = wfMetrics.getReliability();
 				Property wfTimeOP = this.model.createProperty(WFMS_NS + "wfavgtime");
 				processInd.addProperty(wfTimeOP, time + "", XSDDatatype.XSDdouble);
 				wfMetrics.setTime(time);
@@ -627,6 +643,7 @@ public class DigraphJSONtoRDFQoS {
 				processInd.addProperty(wfReliabilityOP, reliability + "", XSDDatatype.XSDdouble);
 				wfMetrics.setReliability(reliability);
 			}
+			seenKeys.put(activity.wfID + "_" + activity.service, true);
 		}
 	}
 	

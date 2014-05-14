@@ -338,7 +338,7 @@ public class LDBDAO {
             if( costLit != null ) {
             	double cost = costLit.getDouble();
             	String costStr = String.format("%.3f", cost);
-            	jsonObj.put("time", costStr);
+            	jsonObj.put("cost", costStr);
             }
             Literal reliabilityLit = soln.getLiteral("reliability");
             if( reliabilityLit != null ) {
