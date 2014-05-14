@@ -62,6 +62,40 @@ public class LDBDAO {
 	
 	
 	/**
+	 * Returns a String representation of a JSON array containing the wfIDs of the workflows in the database,
+	 * ranked by a QoS metric.
+	 */
+	public String getWfIDsRanked(String rankProperty) {
+		String sparqlQueryString = "PREFIX provone: <http://purl.org/provone/ontology#> \n" +
+        		"PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> \n" +
+        		"PREFIX dc: <http://purl.org/dc/terms/> \n" +
+        		"PREFIX wfms: <http://www.vistrails.org/registry.xsd#> \n" +
+        		"PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> \n" + 
+				"SELECT ?id ?" + rankProperty + " WHERE { " + 
+        		"?wf dc:identifier ?id . " +
+        		"OPTIONAL { ?wf wfms:" + rankProperty + " ?aggavgtime } . " +
+        		"?wf rdf:type provone:Workflow . " +
+        		"} " + 
+        		"ORDER BY ?" + rankProperty;
+        Query query = QueryFactory.create(sparqlQueryString);
+        QueryExecution qexec = QueryExecutionFactory.create(query, this.ds);
+        ResultSet results = qexec.execSelect();
+        List<String> wfIDsList = new ArrayList<String>();
+        for ( ; results.hasNext() ; ) {
+            QuerySolution soln = results.nextSolution();
+            String id = soln.getLiteral("id").getString();
+            wfIDsList.add(id);
+        }
+        qexec.close();
+        JSONArray array = new JSONArray();
+        for (int i = 0; i < wfIDsList.size(); i++) {
+        	array.put(wfIDsList.get(i));
+        }
+		return array.toString();
+	}
+	
+	
+	/**
 	 * Returns a String representation of a JSON array containing the wfIDs of the workflows in the database.
 	 */
 	public String getWfIDs() {

@@ -453,14 +453,23 @@ function createTabs(containerID, isTrace, Y) {
 		loadTabContent = '<div id="' + loadTabContainerID + '">Trace id:<br/>' +
 		'<select id="traceIdsSelect"><option value=""></option></select>' + 
 		'<br/><br/><input id="' + containerID + 'PropertiesBtn" type="button" value="properties">' +
-		'<input id="' + containerID + 'EncodingBtn" type="button" value="encoding"></div>';
+		'<input id="' + containerID + 'EncodingBtn" type="button" value="encoding">' +
+		'</div>';
 	else
 		loadTabContent = '<div id="' + loadTabContainerID + '">Database name: ' + 
 			'<input type="text" id="dbnameTextfield" size="15"><br/>' +
 			'<input type="button" id="dbnameLoadBtn" value="Load"><br/><br/>Workflow id:<br/>' +
 			'<select id="wfIdsSelect"></select>' + 
 			'<br/><br/><input id="' + containerID + 'PropertiesBtn" type="button" value="properties">' +
-			'<input id="' + containerID + 'EncodingBtn" type="button" value="encoding"></div>';
+			'<input id="' + containerID + 'EncodingBtn" type="button" value="encoding"><br/><br/>' + 
+			'Ranking<br/>' +
+			'<form action="">' + 
+			'<input type="radio" name="rankProperty" value="none" checked="checked">None<br>' +
+			'<input type="radio" name="rankProperty" value="aggavgtime">Time<br>' +
+			'<input type="radio" name="rankProperty" value="aggavgcost">Cost<br>' + 
+			'<input type="radio" name="rankProperty" value="aggavgrebty">Reliability<br>' + 
+			'</form>' + 
+			'</div>';
 	prefix = isTrace ? 'trace' : 'wf';
 	var queryTabContent = '<div id="' + queryTabContainerID + '">' +
 		'<select id="' + prefix + 'QuerySelect"></select>' + '<br/><br/>' + 
@@ -659,8 +668,9 @@ function callWfIdsWS(Y) {
 	var url = 'webresources/wfidsresource';
 	var dbnameTxtField = Y.one('#dbnameTextfield');
 	var dbnameParam = dbnameTxtField.get('value');
+	var rankP = Y.one('[name=rankProperty]:checked').get('value');
 	Y.io(url, {
-		data: 'dbname=' + dbnameParam,
+		data: 'dbname=' + dbnameParam + '&rankproperty=' + rankP,
 		on: {
 			complete: function (id, response) {
 				if (response.status >= 200 && response.status < 300) {

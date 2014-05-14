@@ -19,12 +19,16 @@ public class WfIdsResource {
      */
     @GET 
     @Produces("text/plain")
-    public String getIt(@QueryParam("dbname") String dbname) {
+    public String getIt(@QueryParam("dbname") String dbname, 
+    		@QueryParam("rankproperty") String rankProperty) {
     	LDBDAO dao = LDBDAO.getInstance();
     	dao.init(dbname);
     	String retVal = null;
     	try {
-    		retVal = dao.getWfIDs();
+    		if( rankProperty == null || rankProperty.equals("none") )
+    			retVal = dao.getWfIDs();
+    		else
+    			retVal = dao.getWfIDsRanked(rankProperty);
     	}
     	catch(Exception e) {
     		e.printStackTrace();
@@ -32,3 +36,4 @@ public class WfIdsResource {
     	return retVal;
     }
 }
+
