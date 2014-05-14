@@ -553,13 +553,13 @@ public class PROVRDFBuilder {
 			for(String opKey: module.outputPorts.keySet())
 				m.add(idToInd.get(module.entityId), hasOutputPortOP, idToInd.get(module.entityId + "_" + opKey));
 		}
-		// Iterate over the edge objects to generate DLToInPort and outPortToDL object properties
+		// Iterate over the edge objects to generate DLToInPort and DLToOutPort object properties
 		for( Edge edge: this.edges) {
 			ObjectProperty DLToInPortOP = m.createObjectProperty(SOURCE_URL + "#" + "DLToInPort");
 			if( edge.label.equals("connect") ) {
 				m.add(idToInd.get(edge.id), DLToInPortOP, idToInd.get(edge.dest + "_" + edge.destPort));
-				ObjectProperty outPortToDLOP = m.createObjectProperty(SOURCE_URL + "#" + "outPortToDL");
-				m.add(idToInd.get(edge.id), outPortToDLOP, idToInd.get(edge.source + "_" + edge.sourcePort));
+				ObjectProperty DLToOutPortOP = m.createObjectProperty(SOURCE_URL + "#" + "DLToOutPort");
+				m.add(idToInd.get(edge.id), DLToOutPortOP, idToInd.get(edge.source + "_" + edge.sourcePort));
 			}
 		}
 		// Iterate over workflow execution activities ids to generate ProcessExec entities corresponding to workflows

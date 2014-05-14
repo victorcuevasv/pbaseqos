@@ -36,7 +36,7 @@ public class LDBDAO {
 	
 	
 	public synchronized void init(String directory) {
-		if( this.ds == null || ( this.directory != null && ! this.directory.equals(this.directory) ) ) {
+		if( this.ds == null || ( this.directory != null && ! this.directory.equals(directory) ) ) {
 			if( this.ds != null )
 				this.ds.close();
 			this.directory = directory;
@@ -310,10 +310,10 @@ public class LDBDAO {
         		"?wfpexec dc:identifier " + "\"" + runID + "\"^^xsd:string . " +
         		"?pexec provone:isPartOf ?wfpexec . " +
         		"?pexec dc:identifier ?id . " +
-        		"?pexec wfms:service ?service . " +
-        		"?pexec wfms:time ?time . " +
-        		"?pexec wfms:cost ?cost . " +
-        		"?pexec wfms:reliability ?reliability . " +
+        		"OPTIONAL { ?pexec wfms:service ?service } . " +
+        		"OPTIONAL { ?pexec wfms:time ?time } . " +
+        		"OPTIONAL { ?pexec wfms:cost ?cost } . " +
+        		"OPTIONAL { ?pexec wfms:reliability ?reliability } . " +
         		"}";
         Query query = QueryFactory.create(sparqlQueryString);
         QueryExecution qexec = QueryExecutionFactory.create(query, this.ds);
@@ -323,17 +323,29 @@ public class LDBDAO {
             JSONObject jsonObj = new JSONObject();
             String id = soln.getLiteral("id").getString();
             jsonObj.put("nodeId", id);
-            String service = soln.getLiteral("service").getString();
-            jsonObj.put("service", service);
-            Double time = soln.getLiteral("time").getDouble();
-            String timeStr = String.format("%.3f", time);
-            jsonObj.put("time", timeStr);
-            Double cost = soln.getLiteral("cost").getDouble();
-            String costStr = String.format("%.3f", cost);
-            jsonObj.put("cost", costStr);
-            Double reliability = soln.getLiteral("reliability").getDouble();
-            String reliabilityStr = String.format("%.3f", reliability);
-            jsonObj.put("rebty", reliabilityStr);
+            Literal serviceLit = soln.getLiteral("service");
+            if( serviceLit != null ) {
+            	String serviceStr = serviceLit.getString();
+            	jsonObj.put("service", serviceStr);
+            }
+            Literal timeLit = soln.getLiteral("time");
+            if( timeLit != null ) {
+            	double time = timeLit.getDouble();
+            	String timeStr = String.format("%.3f", time);
+            	jsonObj.put("time", timeStr);
+            }
+            Literal costLit = soln.getLiteral("cost");
+            if( costLit != null ) {
+            	double cost = costLit.getDouble();
+            	String costStr = String.format("%.3f", cost);
+            	jsonObj.put("time", costStr);
+            }
+            Literal reliabilityLit = soln.getLiteral("reliability");
+            if( reliabilityLit != null ) {
+            	double reliability = reliabilityLit.getDouble();
+            	String reliabilityStr = String.format("%.3f", reliability);
+            	jsonObj.put("rebty", reliabilityStr);
+            }
             jsonObj.put("type", "activity");
             nodesHT.put(id, jsonObj);
         }
